@@ -1,4 +1,5 @@
 import { Post } from "../models/Post.js";
+import User from "../models/User.js";
 
 export const getPosts = async (req, res) => {
   try {
@@ -102,5 +103,93 @@ export const LikePost = async (req, res) => {
     res.json({ message: "Post liked/unliked!", UpdatedPostData: updatedPost });
   } catch (error) {
     res.json({ message: "Failed to like/unlike post!" });
+  }
+};
+
+export const CreateComment = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!req.body.text?.trim()) {
+      return res.status(400).json({
+        message: "Comment cannot be empty",
+      });
+    }
+
+    const user = await User.findById(req.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    const post = await Post.findById(id);
+
+    if (!post) {
+      return res.status(404).json({
+        message: "Post not found",
+      });
+    }
+
+    post.comments.push({
+      user: req.userId,
+      username: user.name,
+      text: req.body.text.trim(),
+    });
+
+    await post.save();
+
+    res.status(201).json({
+      message: "Comment added!",
+      post,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+export const DeleteComment = async (req, res) => {
+  try {
+    const { postId, commentId } = req.params;
+    console.log("POST ID:", req.params.postId);
+    console.log("COMMENT ID:", req.params.commentId);
+
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      return res.status(404).json({
+        message: "Post not found",
+      });
+    }
+
+    const comment = post.comments.id(commentId);
+
+    if (!comment) {
+      return res.status(404).json({
+        message: "Comment not found",
+      });
+    }
+
+    if (comment.user.toString() !== req.userId) {
+      return res.status(403).json({
+        message: "You do not own this comment",
+      });
+    }
+
+    comment.deleteOne();
+
+    await post.save();
+
+    res.status(200).json({
+      message: "Comment deleted",
+      post,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
   }
 };
